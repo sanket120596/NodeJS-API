@@ -4,6 +4,8 @@ const router = new express.Router();
 const User = require("../models/user");
 const auth = require("../middleware/auth");
 
+const multer = require('multer');
+
 //Insert User
 router.post("/user", async (req, res) => {
   try {
@@ -124,5 +126,50 @@ router.post("/users/logoutAll", auth, async (req, resp) => {
     resp.status(401).send();
   }
 });
+
+
+const upload = multer({
+  //dest:'avatars',   //if these line is not commented then the
+                      // file will be saved in local folder and 
+                      //file.buffer will be undefined
+  limits:{
+    fileSize: 1000000   //1MB
+  },
+  fileFilter(req,file,cb){
+    if(!file.originalname.match(/\.(jpg|jpeg|png)$/)){
+      return cb(new Error('Please upload PDF'))
+    }
+    cb(undefined,true)
+  }
+})
+
+//Post Profile Pic
+router.post("/user/me/avatar", auth, upload.single('avatar'), async (req,resp)=>{
+  req.user.avatar = req.file.buffer;
+  await req.user.save()
+  resp.send();
+})
+
+//Delete Profile Pic
+router.delete("/user/me/avatar", auth, async (req,resp)=>{
+  req.user.avatar = undefined;
+  await req.user.save()
+  resp.send();
+})
+
+router.get("/user/:id/avatar",async(req,resp)=>{
+  try {
+    const user = await User.findById(req.params.id)
+    if(!user || !user.avatar){
+      throw new Error("No user/user avatar found")
+    }
+    resp.set('Content-Type','image/jpg')
+    resp.send(user.avatar)
+  } catch (error) {
+      resp.status(404).send(error)
+  }
+
+})
+
 
 module.exports = router;
